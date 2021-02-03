@@ -3,20 +3,22 @@ pragma solidity >=0.4.22 <0.9.0;
 contract SpaceY {
     struct Planet {
         address owner;
+        uint256 conquerBlock;
         uint64 units;
     }
 
-    struct PlanetStats {
-        uint64 unitsCost;
-        uint64 unitsCreationPerSecond;
-    }
+    address payable public owner;
 
-    uint32 public size;
+    uint256 public startCosts;
 
-    mapping(uint32 => Planet) planets;
+    uint32 public universeSize;
 
-    constructor(uint32 universeSize) public {
-        size = universeSize;
+    mapping(uint32 => Planet) public planets;
+    mapping(address => uint256) public playerStartBlocks;
+
+    constructor(uint32 size, uint256 startFee) public {
+        universeSize = size;
+        startCosts = startFee;
     }
 
     modifier ownsPlanet(uint32 planetId, address person) {
@@ -26,20 +28,26 @@ contract SpaceY {
 
     event PlanetConquered(uint32 planetId, address indexed newOwner);
 
+    function buyInitialPlanet() public payable {
+        require(
+            msg.value >= startCosts,
+            "The transaction does not contain enought value to cover the start costs"
+        );
+        require(
+            playerStartBlocks[msg.sender] == 0,
+            "The address already bought an initial planet"
+        );
+        playerStartBlocks[msg.sender] = block.number;
+    }
+
     function getPlanetStats(uint32 planetId)
         public
         view
         returns (uint64 unitsCost, uint64 unitsCreationPerSecond)
     {
-        bytes32 hash_factor = keccak256(abi.encode(planetId));
-        uint64 magnitute =
-            size - (planetId + (planetId % uint8(hash_factor[0])));
+        uint64 magnitute = (universeSize - planetId)**2;
 
-        return (
-            //magnitute + ((magnitute * uint8(hash_factor[0])) % magnitute),
-            magnitute,
-            (magnitute + uint8(hash_factor[1])) % magnitute
-        );
+        return (magnitute, magnitute / 100);
     }
 
     function conquerPlanet(
@@ -51,12 +59,12 @@ contract SpaceY {
         ownsPlanet(toPlanetId, msg.sender)
         ownsPlanet(fromPlanetId, address(0x0))
     {
-        (uint64 unitCosts, uint64 unitsCreationPerSecond) =
+        (uint64 unitsCost, uint64 unitsCreationPerSecond) =
             getPlanetStats(toPlanetId);
         require(planets[fromPlanetId].units >= sendUnitAmount);
-        require(unitCosts <= sendUnitAmount);
+        require(unitsCost <= sendUnitAmount);
 
-        forceMoveUnits(fromPlanetId, toPlanetId, sendUnitAmount, unitCosts);
+        forceMoveUnits(fromPlanetId, toPlanetId, sendUnitAmount, unitsCost);
     }
 
     function moveUnits(
@@ -76,10 +84,10 @@ contract SpaceY {
         uint32 fromPlanetId,
         uint32 toPlanetId,
         uint64 sendUnitAmount,
-        uint64 unitCosts
+        uint64 unitsCost
     ) private {
         planets[fromPlanetId].units -= sendUnitAmount;
-        sendUnitAmount -= unitCosts;
+        sendUnitAmount -= unitsCost;
         planets[toPlanetId].owner = msg.sender;
         planets[toPlanetId].units = sendUnitAmount;
     }

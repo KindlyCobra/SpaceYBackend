@@ -1,3 +1,5 @@
+const truffleAssert = require('truffle-assertions');
+
 const SpaceY = artifacts.require("SpaceY");
 
 contract("SpaceY", accounts => {
@@ -19,20 +21,10 @@ contract("SpaceY", accounts => {
 
     it("should not be able to buy initial planet when address did already buy before", async () => {
         await instance.buyInitialPlanet({ from: accounts[1], value: startCosts });
-        try {
-            await instance.buyInitialPlanet({ from: accounts[1], value: startCosts });
-        } catch (e) {
-            return true;
-        }
-        throw new Error();
+        await truffleAssert.fails(instance.buyInitialPlanet({ from: accounts[1], value: startCosts }), truffleAssert.ErrorType.REVERT);
     });
 
     it("should not be able to buy initial planet when sending to less gwei", async () => {
-        try {
-            await instance.buyInitialPlanet({ from: accounts[1], value: startCosts - 10 });
-        } catch (e) {
-            return true;
-        }
-        throw new Error();
+        await truffleAssert.fails(instance.buyInitialPlanet({ from: accounts[1], value: startCosts - 10 }), truffleAssert.ErrorType.REVERT);
     });
 });

@@ -19,6 +19,7 @@ contract SpaceY {
     constructor(uint32 size, uint256 startFee) public {
         universeSize = size;
         startCosts = startFee;
+        owner = msg.sender;
     }
 
     modifier ownsPlanet(uint32 planetId, address person) {
@@ -26,7 +27,14 @@ contract SpaceY {
         _;
     }
 
-    event PlanetConquered(uint32 planetId, address indexed newOwner);
+    event InitialPlanetBought(address indexed player);
+    event PlanetConquered(uint32 planetId, address indexed player);
+    event UnitsMoved(
+        uint32 indexed fromPlanetId,
+        uint32 indexed toPlanetId,
+        address indexed player,
+        uint64 units
+    );
 
     function buyInitialPlanet() public payable {
         require(
@@ -38,6 +46,7 @@ contract SpaceY {
             "The address already bought an initial planet"
         );
         playerStartBlocks[msg.sender] = block.number;
+        emit InitialPlanetBought(msg.sender);
     }
 
     function getPlanetStats(uint32 planetId)
@@ -59,9 +68,9 @@ contract SpaceY {
         if (planet.owner == address(0x0)) {
             return 0;
         }
-        uint256 timeDif = block.number - planet.conquerBlockNumber;
+        uint256 blockDelta = block.number - planet.conquerBlockNumber;
         (uint64 _, uint64 unitsCreationRate) = getPlanetStats(planetId);
-        return planet.units + int128(timeDif * unitsCreationRate);
+        return planet.units + int128(blockDelta * unitsCreationRate);
     }
 
     function conquerPlanet(
@@ -70,15 +79,16 @@ contract SpaceY {
         uint64 sendUnitAmount
     )
         public
-        ownsPlanet(toPlanetId, msg.sender)
-        ownsPlanet(fromPlanetId, address(0x0))
+        ownsPlanet(fromPlanetId, msg.sender)
+        ownsPlanet(toPlanetId, address(0x0))
     {
         (uint64 unitsCost, uint64 _) = getPlanetStats(toPlanetId);
-        require(planets[fromPlanetId].units >= sendUnitAmount);
+        require(getUnitsOnPlanet(fromPlanetId) >= sendUnitAmount);
         require(unitsCost <= sendUnitAmount);
 
         planets[toPlanetId] = Planet(owner, block.number, 0);
 
+        emit PlanetConquered(toPlanetId, msg.sender);
         forceMoveUnits(fromPlanetId, toPlanetId, sendUnitAmount, unitsCost);
     }
 
@@ -102,7 +112,8 @@ contract SpaceY {
         uint64 unitsCost
     ) private {
         planets[fromPlanetId].units -= sendUnitAmount;
-        sendUnitAmount -= unitsCost;
-        planets[toPlanetId].units = sendUnitAmount;
+        uint64 remainingUnits = sendUnitAmount - unitsCost;
+        planets[toPlanetId].units = remainingUnits;
+        emit UnitsMoved(fromPlanetId, toPlanetId, msg.sender, sendUnitAmount);
     }
 }

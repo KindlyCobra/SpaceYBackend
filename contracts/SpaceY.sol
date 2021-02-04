@@ -3,8 +3,8 @@ pragma solidity >=0.4.22 <0.9.0;
 contract SpaceY {
     struct Planet {
         address owner;
-        uint256 conquerBlock;
-        uint64 units;
+        uint256 conquerBlockNumber;
+        int128 units;
     }
 
     address payable public owner;
@@ -43,11 +43,25 @@ contract SpaceY {
     function getPlanetStats(uint32 planetId)
         public
         view
-        returns (uint64 unitsCost, uint64 unitsCreationPerSecond)
+        returns (uint64 unitsCost, uint64 unitsCreationRate)
     {
         uint64 magnitute = (universeSize - planetId)**2;
 
         return (magnitute, magnitute / 100);
+    }
+
+    function getUnitsOnPlanet(uint32 planetId)
+        public
+        view
+        returns (int128 units)
+    {
+        Planet memory planet = planets[planetId];
+        if (planet.owner == address(0x0)) {
+            return 0;
+        }
+        uint256 timeDif = block.number - planet.conquerBlockNumber;
+        (uint64 _, uint64 unitsCreationRate) = getPlanetStats(planetId);
+        return planet.units + int128(timeDif * unitsCreationRate);
     }
 
     function conquerPlanet(
@@ -59,10 +73,11 @@ contract SpaceY {
         ownsPlanet(toPlanetId, msg.sender)
         ownsPlanet(fromPlanetId, address(0x0))
     {
-        (uint64 unitsCost, uint64 unitsCreationPerSecond) =
-            getPlanetStats(toPlanetId);
+        (uint64 unitsCost, uint64 _) = getPlanetStats(toPlanetId);
         require(planets[fromPlanetId].units >= sendUnitAmount);
         require(unitsCost <= sendUnitAmount);
+
+        planets[toPlanetId] = Planet(owner, block.number, 0);
 
         forceMoveUnits(fromPlanetId, toPlanetId, sendUnitAmount, unitsCost);
     }
@@ -88,7 +103,6 @@ contract SpaceY {
     ) private {
         planets[fromPlanetId].units -= sendUnitAmount;
         sendUnitAmount -= unitsCost;
-        planets[toPlanetId].owner = msg.sender;
         planets[toPlanetId].units = sendUnitAmount;
     }
 }

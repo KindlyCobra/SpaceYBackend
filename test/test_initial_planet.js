@@ -19,8 +19,20 @@ contract("SpaceY", accounts => {
 
     it("should not be able to buy initial planet when address did already buy before", async () => {
         await instance.buyInitialPlanet({ from: accounts[1], value: startCosts });
-        let result = await instance.buyInitialPlanet({ from: accounts[1], value: startCosts });
-        assert.equal()
+        try {
+            await instance.buyInitialPlanet({ from: accounts[1], value: startCosts });
+        } catch (e) {
+            return true;
+        }
+        throw new Error();
     });
 
+    it("should not be able to buy initial planet when sending to less gwei", async () => {
+        try {
+            await instance.buyInitialPlanet({ from: accounts[1], value: startCosts - 10 });
+        } catch (e) {
+            return true;
+        }
+        throw new Error();
+    });
 });

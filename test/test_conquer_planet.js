@@ -57,5 +57,32 @@ contract("SpaceY", accounts => {
             truffleAssert.ErrorType.REVERT);
     });
 
+    it("should not conquer planet when not owning fromPlanet", async () => {
+        await truffleAssert.fails(
+            instance.conquerPlanet(950, 949, 100, { from: accounts[1] }),
+            truffleAssert.ErrorType.REVERT);
+    });
 
+    it("should not conquer planet when toPlanet is owned by other player", async () => {
+        await instance.buyInitialPlanet({ from: accounts[2], value: startCosts });
+
+        let blockNumber = (await web3.eth.getBlock("latest")).number;
+        await instance.setPlanet(950, accounts[1], blockNumber, 100000);
+        await instance.setPlanet(900, accounts[2], blockNumber, 100000);
+        await instance.conquerPlanet(900, 940, 10000, { from: accounts[2] });
+        await truffleAssert.fails(
+            instance.conquerPlanet(950, 940, 10000, { from: accounts[1] }),
+            truffleAssert.ErrorType.REVERT);
+    });
+
+    it("should not conquer planet when toPlanet is already owned", async () => {
+        await instance.buyInitialPlanet({ from: accounts[2], value: startCosts });
+
+        let blockNumber = (await web3.eth.getBlock("latest")).number;
+        await instance.setPlanet(950, accounts[1], blockNumber, 100000);
+        await instance.conquerPlanet(950, 949, 10000, { from: accounts[1] });
+        await truffleAssert.fails(
+            instance.conquerPlanet(950, 949, 10000, { from: accounts[1] }),
+            truffleAssert.ErrorType.REVERT);
+    });
 });

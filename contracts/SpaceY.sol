@@ -118,7 +118,7 @@ contract SpaceY {
         ownsPlanet(fromPlanetId, msg.sender)
     {
         require(
-            planets[fromPlanetId].units >= sendUnitAmount,
+            getUnitsOnPlanet(fromPlanetId) >= sendUnitAmount,
             "Not enough units on fromPlanet"
         );
         forceMoveUnits(fromPlanetId, toPlanetId, sendUnitAmount, 0);

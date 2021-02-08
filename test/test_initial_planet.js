@@ -27,4 +27,5 @@ contract("SpaceY", accounts => {
     it("should not be able to buy initial planet when sending to less gwei", async () => {
         await truffleAssert.fails(instance.buyInitialPlanet({ from: accounts[1], value: startCosts - 10 }), truffleAssert.ErrorType.REVERT);
     });
+
 });

@@ -12,6 +12,14 @@ contract("SpaceY", accounts => {
         await instance.buyInitialPlanet({ from: accounts[1], value: startCosts });
     })
 
+    /*it("should get dynamic units on start planet when active player", async () => {
+        let planetStats = await instance.getPlanetStats(universumSize, { from: accounts[1] });
+        assert(planetStats, 1);
+        web3.currentProvider.sendAsync({ jsonrpc: "2.0", method: "enm_mine", id: 0 });
+        planetStats = await instance.getPlanetStats(universumSize, { from: accounts[1] });
+        assert(planetStats, 2);
+    });*/
+
     it("should calculate proper units on planet after 1 block when having no moved units", async () => {
         let blockNumber = (await web3.eth.getBlock("latest")).number;
         await instance.setPlanet(100, accounts[1], blockNumber, 0);

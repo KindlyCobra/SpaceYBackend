@@ -4,14 +4,9 @@ module.exports = async function (deployer, network, accounts) {
   if (network == "development") {
     deployer.deploy(SpaceY, { overwrite: false }).then(async function (instance) {
       console.info("Working with contract @ " + instance.address);
-      for (i = 0; i < 5; i++) {
-        let result = await instance.buyInitialPlanet({ from: accounts[i], value: 1000 });
-        if (!result.receipt.status) {
-          console.info(result);
-          console.info("Error while buying initial planet for " + i);
-        } else {
-          console.info("Bought initial planet for " + accounts[i] + " @ " + result.tx);
-        }
+      for (i = 0; i < 2; i++) {
+        await instance.buyInitialPlanet({ from: accounts[i], value: 1000 });
+        console.info("Bought initial planet for " + accounts[i]);
       }
     });
   } else {

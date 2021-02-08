@@ -14,10 +14,10 @@ contract("SpaceY", accounts => {
         await instance.buyInitialPlanet({ from: accounts[1], value: startCosts });
     })
 
-    it("should conquer planet when enough static units on fromPlanet", async () => {
+    it("should conquer planet when enough static units on single fromPlanet", async () => {
         let blockNumber = (await web3.eth.getBlock("latest")).number;
         await instance.setPlanet(950, accounts[1], blockNumber, 10000);
-        let result = await instance.conquerPlanet(950, 949, 9000, { from: accounts[1] });
+        let result = await instance.conquerPlanet([950], 949, [9000], { from: accounts[1] });
 
         truffleAssert.eventEmitted(result, "PlanetConquered", (ev) => {
             return ev.planetId == 949 && ev.player == accounts[1] && ev.units == 6399;
@@ -25,13 +25,32 @@ contract("SpaceY", accounts => {
         truffleAssert.eventEmitted(result, "UnitsMoved", (ev) => {
             return ev.fromPlanetId == 950 && ev.toPlanetId == 949 && ev.player == accounts[1] && ev.units == 9000;
         });
+    });
+
+    it("should conquer planet when enough static units on mutliple fromPlanets", async () => {
+        let blockNumber = (await web3.eth.getBlock("latest")).number;
+        await instance.setPlanet(950, accounts[1], blockNumber, 1500);
+        await instance.setPlanet(951, accounts[1], blockNumber, 1500);
+        let result = await instance.conquerPlanet([950, 951], 949, [1400, 1400], { from: accounts[1] });
+
+        truffleAssert.eventEmitted(result, "PlanetConquered", (ev) => {
+            return ev.planetId == 949 && ev.player == accounts[1] && ev.units == 96;
+        });
+        truffleAssert.eventEmitted(result, "UnitsMoved", (ev) => {
+            return ev.fromPlanetId == 950 && ev.toPlanetId == 949 && ev.player == accounts[1] && ev.units == 2800;
+        });
+        truffleAssert.eventEmitted(result, "UnitsMoved", (ev) => {
+            return ev.fromPlanetId == 951 && ev.toPlanetId == 950 && ev.player == accounts[1] && ev.units == 1500;
+        });
 
     });
 
-    it("should conquer planet when enough dynamic units on fromPlanet", async () => {
+
+
+    it("should conquer planet when enough dynamic units on single fromPlanet", async () => {
         let blockNumber = (await web3.eth.getBlock("latest")).number;
         await instance.setPlanet(950, accounts[1], blockNumber, 0);
-        let result = await instance.conquerPlanet(950, 999, 10, { from: accounts[1] });
+        let result = await instance.conquerPlanet([950], 999, [10], { from: accounts[1] });
 
         truffleAssert.eventEmitted(result, "PlanetConquered", (ev) => {
             return ev.planetId == 999 && ev.player == accounts[1] && ev.units == 9;
@@ -45,7 +64,7 @@ contract("SpaceY", accounts => {
         let blockNumber = (await web3.eth.getBlock("latest")).number;
         await instance.setPlanet(950, accounts[1], blockNumber, 0);
         await truffleAssert.fails(
-            instance.conquerPlanet(950, 949, 1, { from: accounts[1] }),
+            instance.conquerPlanet([950], 949, [1], { from: accounts[1] }),
             truffleAssert.ErrorType.REVERT);
     });
 
@@ -53,13 +72,13 @@ contract("SpaceY", accounts => {
         let blockNumber = (await web3.eth.getBlock("latest")).number;
         await instance.setPlanet(950, accounts[1], blockNumber, 0);
         await truffleAssert.fails(
-            instance.conquerPlanet(950, 949, 1000000, { from: accounts[1] }),
+            instance.conquerPlanet([950], 949, [1000000], { from: accounts[1] }),
             truffleAssert.ErrorType.REVERT);
     });
 
     it("should not conquer planet when not owning fromPlanet", async () => {
         await truffleAssert.fails(
-            instance.conquerPlanet(950, 949, 100, { from: accounts[1] }),
+            instance.conquerPlanet([950], 949, [100], { from: accounts[1] }),
             truffleAssert.ErrorType.REVERT);
     });
 
@@ -69,9 +88,9 @@ contract("SpaceY", accounts => {
         let blockNumber = (await web3.eth.getBlock("latest")).number;
         await instance.setPlanet(950, accounts[1], blockNumber, 100000);
         await instance.setPlanet(900, accounts[2], blockNumber, 100000);
-        await instance.conquerPlanet(900, 940, 10000, { from: accounts[2] });
+        await instance.conquerPlanet([900], 940, [10000], { from: accounts[2] });
         await truffleAssert.fails(
-            instance.conquerPlanet(950, 940, 10000, { from: accounts[1] }),
+            instance.conquerPlanet([950], 940, [10000], { from: accounts[1] }),
             truffleAssert.ErrorType.REVERT);
     });
 
@@ -80,9 +99,9 @@ contract("SpaceY", accounts => {
 
         let blockNumber = (await web3.eth.getBlock("latest")).number;
         await instance.setPlanet(950, accounts[1], blockNumber, 100000);
-        await instance.conquerPlanet(950, 949, 10000, { from: accounts[1] });
+        await instance.conquerPlanet([950], 949, [10000], { from: accounts[1] });
         await truffleAssert.fails(
-            instance.conquerPlanet(950, 949, 10000, { from: accounts[1] }),
+            instance.conquerPlanet([950], 949, [10000], { from: accounts[1] }),
             truffleAssert.ErrorType.REVERT);
     });
 });

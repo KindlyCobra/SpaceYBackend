@@ -14,7 +14,7 @@ contract SpaceY {
     uint32 public universeSize;
 
     mapping(uint32 => Planet) public planets;
-    mapping(address => uint256) public playerStartBlocks;
+    mapping(address => Planet) public startPlanets;
 
     constructor(uint32 size, uint256 startFee) public {
         universeSize = size;
@@ -26,7 +26,10 @@ contract SpaceY {
         if (planetId != universeSize) {
             require(planets[planetId].owner == person, "Not owning planet");
         } else {
-            require(playerStartBlocks[person] != 0, "Not owning origin planet");
+            require(
+                startPlanets[person].owner != address(0x0),
+                "Not owning origin planet"
+            );
         }
         _;
     }
@@ -65,14 +68,17 @@ contract SpaceY {
     {
         if (planetId == universeSize) {
             require(
-                playerStartBlocks[msg.sender] != 0,
+                startPlanets[msg.sender].owner != address(0x0),
                 "Can't have units on start planet if not an active player"
             );
             return (0, 1);
         }
         uint64 magnitute = (universeSize - planetId)**2;
-
-        return (magnitute, magnitute / 100);
+        uint64 productionRate = magnitute / 100;
+        if (productionRate <= 0) {
+            productionRate = 1;
+        }
+        return (magnitute, productionRate);
     }
 
     function getUnitsOnPlanet(uint32 planetId)
@@ -81,24 +87,47 @@ contract SpaceY {
         planetExists(planetId)
         returns (uint64 units)
     {
-        uint256 conquerBlockNumber;
-        int128 staticUnits;
+        Planet memory planet;
         if (planetId == universeSize) {
-            conquerBlockNumber = playerStartBlocks[msg.sender];
-            staticUnits = 0;
+            planet = startPlanets[msg.sender];
+            require(
+                planet.owner != address(0x0),
+                "Player does not own origin planet"
+            );
         } else {
-            Planet storage planet = planets[planetId];
+            planet = planets[planetId];
             if (planet.owner == address(0x0)) {
                 return 0;
             }
-            conquerBlockNumber = planet.conquerBlockNumber;
-            staticUnits = planet.units;
         }
-        uint256 blockDelta = block.number - conquerBlockNumber;
+        uint256 blockDelta = block.number - planet.conquerBlockNumber;
         (uint64 _, uint64 unitsCreationRate) = getPlanetStats(planetId);
         uint64 amount =
-            uint64(staticUnits + int128(blockDelta * unitsCreationRate));
+            uint64(planet.units + int128(blockDelta * unitsCreationRate));
         return amount;
+    }
+
+    function getPlanet(uint32 planetId)
+        public
+        view
+        planetExists(planetId)
+        returns (
+            address owner,
+            uint256 conquerBlockNumber,
+            int128 units
+        )
+    {
+        Planet memory planet;
+        if (planetId == universeSize) {
+            if (startPlanets[msg.sender].owner != address(0x0)) {
+                planet = startPlanets[msg.sender];
+            } else {
+                return (address(0x0), 0, 0);
+            }
+        } else {
+            planet = planets[planetId];
+        }
+        return (planet.owner, planet.conquerBlockNumber, planet.units);
     }
 
     function buyInitialPlanet() external payable {
@@ -107,22 +136,39 @@ contract SpaceY {
             "The transaction does not contain enought value to cover the start costs"
         );
         require(
-            playerStartBlocks[msg.sender] == 0,
+            startPlanets[msg.sender].owner == address(0x0),
             "The address already bought an initial planet"
         );
-        playerStartBlocks[msg.sender] = block.number;
+        startPlanets[msg.sender] = Planet(msg.sender, block.number, 0);
         emit InitialPlanetBought(msg.sender);
     }
 
     function conquerPlanet(
+        uint32[] calldata fromPlanetIds,
+        uint32 toPlanetId,
+        uint64[] calldata sendUnitAmounts
+    ) external {
+        require(
+            fromPlanetIds.length == sendUnitAmounts.length,
+            "Length of planetIds have to match length of sendUnits"
+        );
+        uint64 totalSendAmount = sendUnitAmounts[0];
+        for (uint32 i = 1; i < fromPlanetIds.length; i++) {
+            moveUnits(fromPlanetIds[i], fromPlanetIds[0], sendUnitAmounts[i]);
+            totalSendAmount += sendUnitAmounts[i];
+        }
+        conquerPlanetSingle(fromPlanetIds[0], toPlanetId, totalSendAmount);
+    }
+
+    function conquerPlanetSingle(
         uint32 fromPlanetId,
         uint32 toPlanetId,
         uint64 sendUnitAmount
-    ) external ownsPlanet(fromPlanetId, msg.sender) unownedPlanet(toPlanetId) {
+    ) private ownsPlanet(fromPlanetId, msg.sender) unownedPlanet(toPlanetId) {
         (uint64 unitsCost, uint64 _) = getPlanetStats(toPlanetId);
         require(
             getUnitsOnPlanet(fromPlanetId) >= sendUnitAmount,
-            "Not enough units on fromPlanet"
+            "Not enough units on fromPlanet to fullfill sendAmount"
         );
         require(
             unitsCost <= sendUnitAmount,
@@ -144,7 +190,7 @@ contract SpaceY {
         uint32 toPlanetId,
         uint64 sendUnitAmount
     )
-        external
+        public
         ownsPlanet(toPlanetId, msg.sender)
         ownsPlanet(fromPlanetId, msg.sender)
     {
@@ -161,7 +207,11 @@ contract SpaceY {
         uint64 sendUnitAmount,
         uint64 unitsCost
     ) private {
-        planets[fromPlanetId].units -= sendUnitAmount;
+        if (fromPlanetId == universeSize) {
+            planets[fromPlanetId].units -= sendUnitAmount;
+        } else {
+            startPlanets[msg.sender].units -= sendUnitAmount;
+        }
         uint64 remainingUnits = sendUnitAmount - unitsCost;
         planets[toPlanetId].units = remainingUnits;
         emit UnitsMoved(fromPlanetId, toPlanetId, msg.sender, sendUnitAmount);

@@ -14,9 +14,11 @@ contract("SpaceY", accounts => {
     })
 
     it("should be able to buy initial planet when address did not buy it yet", async () => {
-        assert.equal(instance.playerStartBlocks[accounts[1]], undefined);
+        assert.equal((await instance.getPlanet(universumSize, { from: accounts[1] })).conquerBlockNumber.toNumber(), 0);
         let result = await instance.buyInitialPlanet({ from: accounts[1], value: startCosts });
-        assert.equal(instance.playerStartBlocks[accounts[1]], result.blockNumber);
+        let startPlanet = await instance.getPlanet(universumSize, { from: accounts[1] });
+        assert.equal(startPlanet.owner, accounts[1]);
+        assert.equal(startPlanet.conquerBlockNumber.toNumber(), result.receipt.blockNumber);
     });
 
     it("should not be able to buy initial planet when address did already buy before", async () => {

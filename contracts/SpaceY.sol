@@ -190,15 +190,16 @@ contract SpaceY {
         );
         uint64 totalSendAmount = 0;
         for (uint32 i = 0; i < fromPlanetIds.length; i++) {
+            (address planetOwner, , ) = getPlanet(fromPlanetIds[i]);
             require(
-                planets[fromPlanetIds[i]].owner == msg.sender,
+                planetOwner == msg.sender,
                 "Player has to own all from planets"
             );
             require(
                 getUnitsOnPlanet(fromPlanetIds[i]) >= sendUnitAmounts[i],
                 "Not enough units on one fromPlanet to fullfill sendAmount"
             );
-            planets[fromPlanetIds[i]].units -= sendUnitAmounts[i];
+            removeUnitsFrom(fromPlanetIds[i], sendUnitAmounts[i]);
             totalSendAmount += sendUnitAmounts[i];
             emit UnitsSendToConquer(
                 fromPlanetIds[i],
@@ -207,13 +208,17 @@ contract SpaceY {
                 sendUnitAmounts[i]
             );
         }
-        (uint64 unitsCost, uint64 _) = getPlanetStats(toPlanetId);
+        (uint64 unitsCost, ) = getPlanetStats(toPlanetId);
         require(
             unitsCost <= totalSendAmount,
             "The sended unit amount is smaller than the cost"
         );
 
-        planets[toPlanetId] = Planet(msg.sender, block.number, 0);
+        planets[toPlanetId] = Planet(
+            msg.sender,
+            block.number,
+            totalSendAmount - unitsCost
+        );
 
         emit PlanetConquered(
             toPlanetId,
@@ -245,13 +250,17 @@ contract SpaceY {
         uint64 unitsCost
     ) private {
         require(toPlanetId != universeSize, "Target planet can't be origin");
-        if (fromPlanetId == universeSize) {
-            planets[fromPlanetId].units -= sendUnitAmount;
-        } else {
-            startPlanets[msg.sender].units -= sendUnitAmount;
-        }
+        removeUnitsFrom(fromPlanetId, sendUnitAmount);
         uint64 remainingUnits = sendUnitAmount - unitsCost;
         planets[toPlanetId].units = remainingUnits;
         emit UnitsMoved(fromPlanetId, toPlanetId, msg.sender, sendUnitAmount);
+    }
+
+    function removeUnitsFrom(uint32 planetId, uint64 unitAmount) private {
+        if (planetId != universeSize) {
+            planets[planetId].units -= unitAmount;
+        } else {
+            startPlanets[msg.sender].units -= unitAmount;
+        }
     }
 }

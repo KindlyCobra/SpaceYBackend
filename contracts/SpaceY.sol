@@ -48,6 +48,12 @@ contract SpaceY {
     }
 
     event InitialPlanetBought(address indexed player);
+    event UnitsSendToConquer(
+        uint32 fromPlanetId,
+        uint32 toPlanetId,
+        address indexed player,
+        uint64 units
+    );
     event PlanetConquered(
         uint32 planetId,
         address indexed player,
@@ -59,6 +65,36 @@ contract SpaceY {
         address indexed player,
         uint64 units
     );
+
+    event Debug_Planet(
+        uint32 planetId,
+        address owner,
+        uint256 conquerBlockNumber,
+        int128 staticUnits,
+        int128 dynamicUnits,
+        uint64 totalUnits
+    );
+
+    function debug_emitPlanet(uint32 planetId) private {
+        Planet memory planet;
+        if (planetId == universeSize) {
+            planet = startPlanets[msg.sender];
+        } else {
+            planet = planets[planetId];
+        }
+        uint256 blockDelta = block.number - planet.conquerBlockNumber;
+        (uint64 _, uint64 unitsCreationRate) = getPlanetStats(planetId);
+        int128 dynamicUnits = int128(blockDelta * unitsCreationRate);
+        uint64 totalUnits = uint64(planet.units + dynamicUnits);
+        emit Debug_Planet(
+            planetId,
+            planet.owner,
+            planet.conquerBlockNumber,
+            planet.units,
+            dynamicUnits,
+            totalUnits
+        );
+    }
 
     function getPlanetStats(uint32 planetId)
         public
@@ -147,31 +183,33 @@ contract SpaceY {
         uint32[] calldata fromPlanetIds,
         uint32 toPlanetId,
         uint64[] calldata sendUnitAmounts
-    ) external {
+    ) external unownedPlanet(toPlanetId) {
         require(
             fromPlanetIds.length == sendUnitAmounts.length,
             "Length of planetIds have to match length of sendUnits"
         );
-        uint64 totalSendAmount = sendUnitAmounts[0];
-        for (uint32 i = 1; i < fromPlanetIds.length; i++) {
-            moveUnits(fromPlanetIds[i], fromPlanetIds[0], sendUnitAmounts[i]);
+        uint64 totalSendAmount = 0;
+        for (uint32 i = 0; i < fromPlanetIds.length; i++) {
+            require(
+                planets[fromPlanetIds[i]].owner == msg.sender,
+                "Player has to own all from planets"
+            );
+            require(
+                getUnitsOnPlanet(fromPlanetIds[i]) >= sendUnitAmounts[i],
+                "Not enough units on one fromPlanet to fullfill sendAmount"
+            );
+            planets[fromPlanetIds[i]].units -= sendUnitAmounts[i];
             totalSendAmount += sendUnitAmounts[i];
+            emit UnitsSendToConquer(
+                fromPlanetIds[i],
+                toPlanetId,
+                msg.sender,
+                sendUnitAmounts[i]
+            );
         }
-        conquerPlanetSingle(fromPlanetIds[0], toPlanetId, totalSendAmount);
-    }
-
-    function conquerPlanetSingle(
-        uint32 fromPlanetId,
-        uint32 toPlanetId,
-        uint64 sendUnitAmount
-    ) private ownsPlanet(fromPlanetId, msg.sender) unownedPlanet(toPlanetId) {
         (uint64 unitsCost, uint64 _) = getPlanetStats(toPlanetId);
         require(
-            getUnitsOnPlanet(fromPlanetId) >= sendUnitAmount,
-            "Not enough units on fromPlanet to fullfill sendAmount"
-        );
-        require(
-            unitsCost <= sendUnitAmount,
+            unitsCost <= totalSendAmount,
             "The sended unit amount is smaller than the cost"
         );
 
@@ -180,9 +218,8 @@ contract SpaceY {
         emit PlanetConquered(
             toPlanetId,
             msg.sender,
-            sendUnitAmount - unitsCost
+            totalSendAmount - unitsCost
         );
-        forceMoveUnits(fromPlanetId, toPlanetId, sendUnitAmount, unitsCost);
     }
 
     function moveUnits(
@@ -207,6 +244,7 @@ contract SpaceY {
         uint64 sendUnitAmount,
         uint64 unitsCost
     ) private {
+        require(toPlanetId != universeSize, "Target planet can't be origin");
         if (fromPlanetId == universeSize) {
             planets[fromPlanetId].units -= sendUnitAmount;
         } else {

@@ -22,7 +22,7 @@ contract("SpaceY", accounts => {
         truffleAssert.eventEmitted(result, "PlanetConquered", (ev) => {
             return ev.planetId == 949 && ev.player == accounts[1] && ev.units == 6399;
         });
-        truffleAssert.eventEmitted(result, "UnitsMoved", (ev) => {
+        truffleAssert.eventEmitted(result, "UnitsSendToConquer", (ev) => {
             return ev.fromPlanetId == 950 && ev.toPlanetId == 949 && ev.player == accounts[1] && ev.units == 9000;
         });
     });
@@ -34,18 +34,16 @@ contract("SpaceY", accounts => {
         let result = await instance.conquerPlanet([950, 951], 949, [1400, 1400], { from: accounts[1] });
 
         truffleAssert.eventEmitted(result, "PlanetConquered", (ev) => {
-            return ev.planetId == 949 && ev.player == accounts[1] && ev.units == 96;
+            return ev.planetId == 949 && ev.player == accounts[1] && ev.units == 199;
         });
-        truffleAssert.eventEmitted(result, "UnitsMoved", (ev) => {
-            return ev.fromPlanetId == 950 && ev.toPlanetId == 949 && ev.player == accounts[1] && ev.units == 2800;
+        truffleAssert.eventEmitted(result, "UnitsSendToConquer", (ev) => {
+            return ev.fromPlanetId == 950 && ev.toPlanetId == 949 && ev.player == accounts[1] && ev.units == 1400;
         });
-        truffleAssert.eventEmitted(result, "UnitsMoved", (ev) => {
-            return ev.fromPlanetId == 951 && ev.toPlanetId == 950 && ev.player == accounts[1] && ev.units == 1500;
+        truffleAssert.eventEmitted(result, "UnitsSendToConquer", (ev) => {
+            return ev.fromPlanetId == 951 && ev.toPlanetId == 949 && ev.player == accounts[1] && ev.units == 1400;
         });
 
     });
-
-
 
     it("should conquer planet when enough dynamic units on single fromPlanet", async () => {
         let blockNumber = (await web3.eth.getBlock("latest")).number;
@@ -55,7 +53,7 @@ contract("SpaceY", accounts => {
         truffleAssert.eventEmitted(result, "PlanetConquered", (ev) => {
             return ev.planetId == 999 && ev.player == accounts[1] && ev.units == 9;
         });
-        truffleAssert.eventEmitted(result, "UnitsMoved", (ev) => {
+        truffleAssert.eventEmitted(result, "UnitsSendToConquer", (ev) => {
             return ev.fromPlanetId == 950 && ev.toPlanetId == 999 && ev.player == accounts[1] && ev.units == 10;
         });
     });

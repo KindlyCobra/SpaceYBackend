@@ -15,6 +15,7 @@ contract SpaceY {
 
     mapping(uint32 => Planet) public planets;
     mapping(address => Planet) public startPlanets;
+    uint32[] public conqueredPlanets;
 
     constructor(uint32 size, uint256 startFee) public {
         universeSize = size;
@@ -75,6 +76,10 @@ contract SpaceY {
         uint64 totalUnits
     );
 
+    function getConqueredPlanets() external view returns (uint32[] memory) {
+        return conqueredPlanets;
+    }
+
     function debug_emitPlanet(uint32 planetId) private {
         Planet memory planet;
         if (planetId == universeSize) {
@@ -110,7 +115,7 @@ contract SpaceY {
             return (0, 1);
         }
         uint64 magnitute = (universeSize - planetId)**2;
-        uint64 productionRate = magnitute / 100;
+        uint64 productionRate = magnitute / 250;
         if (productionRate <= 0) {
             productionRate = 1;
         }
@@ -219,6 +224,7 @@ contract SpaceY {
             block.number,
             totalSendAmount - unitsCost
         );
+        conqueredPlanets.push(toPlanetId);
 
         emit PlanetConquered(
             toPlanetId,
